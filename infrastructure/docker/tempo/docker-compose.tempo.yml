@@ -1,0 +1,39 @@
+version: '3.8'
+
+services:
+  tempo:
+    image: grafana/tempo:2.5.0
+    container_name: cloudmind-tempo
+    restart: unless-stopped
+    ports:
+      - "4318:4318"  # OTLP HTTP
+    command: ["-config.file=/etc/tempo.yaml"]
+    volumes:
+      - ./tempo.yaml:/etc/tempo.yaml
+    networks:
+      - cloudmind-network
+
+  grafana:
+    image: grafana/grafana:10.2.0
+    container_name: cloudmind-grafana-traces
+    restart: unless-stopped
+    ports:
+      - "3002:3000"
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD:-admin}
+    volumes:
+      - grafana_traces:/var/lib/grafana
+      - ./grafana/provisioning:/etc/grafana/provisioning
+    networks:
+      - cloudmind-network
+
+networks:
+  cloudmind-network:
+    external: true
+
+volumes:
+  grafana_traces:
+    driver: local
+
+

@@ -1,0 +1,4 @@
+# Optional heavy ML dependencies
+tensorflow==2.15.0
+torch==2.1.2
+

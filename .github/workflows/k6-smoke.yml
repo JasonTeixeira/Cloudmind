@@ -1,0 +1,40 @@
+name: k6 Smoke Test
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up k6
+        uses: grafana/setup-k6-action@v1
+
+      - name: Run k6 smoke
+        env:
+          BASE_URL: http://localhost:8000
+        run: |
+          cat > smoke.js <<'JS'
+          import http from 'k6/http';
+          import { check, sleep } from 'k6';
+          export const options = { thresholds: { http_req_duration: ['p(95)<800'] } };
+          export default function () {
+            let res = http.get(`${__ENV.BASE_URL}/livez`);
+            check(res, { 'livez 200': (r) => r.status === 200 });
+            res = http.get(`${__ENV.BASE_URL}/readyz`);
+            check(res, { 'readyz 200': (r) => r.status === 200 });
+            res = http.get(`${__ENV.BASE_URL}/health`);
+            check(res, { 'health 200': (r) => r.status === 200 });
+            sleep(0.1);
+          }
+          JS
+          # Start app in background (example: uvicorn dev)
+          nohup python3 -m uvicorn app.main:app --host 0.0.0.0 --port 8000 &
+          sleep 3
+          k6 run smoke.js
+

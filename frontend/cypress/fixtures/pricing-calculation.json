@@ -1,0 +1,74 @@
+{
+  "total_cost": 125.00,
+  "volume_discount": 12.50,
+  "final_cost": 112.50,
+  "roi_projection": 2250.00,
+  "savings_projection": 1500.00,
+  "payback_period_months": 2.5,
+  "category_breakdown": {
+    "scanning": 50.00,
+    "analysis": 37.50,
+    "security": 25.00
+  },
+  "volume_tiers": [
+    {
+      "min_quantity": 1,
+      "max_quantity": 10,
+      "discount_percentage": 0
+    },
+    {
+      "min_quantity": 11,
+      "max_quantity": 50,
+      "discount_percentage": 10
+    },
+    {
+      "min_quantity": 51,
+      "max_quantity": 100,
+      "discount_percentage": 15
+    },
+    {
+      "min_quantity": 101,
+      "max_quantity": null,
+      "discount_percentage": 20
+    }
+  ],
+  "items": [
+    {
+      "service_token_id": "1",
+      "service_name": "Infrastructure Scan",
+      "quantity": 10,
+      "unit_price": 5.00,
+      "subtotal": 50.00,
+      "discount_applied": 0.00,
+      "final_price": 50.00
+    },
+    {
+      "service_token_id": "2",
+      "service_name": "Cost Optimization Report",
+      "quantity": 1,
+      "unit_price": 500.00,
+      "subtotal": 50.00,
+      "discount_applied": 12.50,
+      "final_price": 37.50
+    },
+    {
+      "service_token_id": "3",
+      "service_name": "Security Assessment",
+      "quantity": 5,
+      "unit_price": 8.00,
+      "subtotal": 40.00,
+      "discount_applied": 0.00,
+      "final_price": 25.00
+    }
+  ],
+  "recommendations": [
+    "Consider bundling services for additional volume discounts",
+    "Monthly monitoring packages offer better value for ongoing projects",
+    "Security assessments show 3x ROI when combined with infrastructure scans"
+  ],
+  "next_discount_threshold": {
+    "quantity_needed": 41,
+    "discount_percentage": 15,
+    "potential_savings": 18.75
+  }
+}

@@ -1,0 +1,67 @@
+[
+  {
+    "id": "1",
+    "name": "Infrastructure Scan",
+    "description": "Comprehensive infrastructure analysis and resource discovery",
+    "unit_type": "per_resource",
+    "base_price": 5.00,
+    "category": "scanning",
+    "is_active": true,
+    "metadata": {
+      "scan_depth": "deep",
+      "supported_providers": ["aws", "gcp", "azure"]
+    }
+  },
+  {
+    "id": "2",
+    "name": "Cost Optimization Report",
+    "description": "Detailed cost optimization recommendations with ROI projections",
+    "unit_type": "flat_rate",
+    "base_price": 500.00,
+    "category": "analysis",
+    "is_active": true,
+    "metadata": {
+      "report_sections": ["cost_breakdown", "optimization_opportunities", "roi_analysis"],
+      "delivery_format": ["pdf", "html", "json"]
+    }
+  },
+  {
+    "id": "3",
+    "name": "Security Assessment",
+    "description": "Comprehensive security vulnerability assessment and compliance check",
+    "unit_type": "per_resource",
+    "base_price": 8.00,
+    "category": "security",
+    "is_active": true,
+    "metadata": {
+      "compliance_frameworks": ["SOC2", "PCI-DSS", "HIPAA", "GDPR"],
+      "vulnerability_databases": ["CVE", "NVD", "OWASP"]
+    }
+  },
+  {
+    "id": "4",
+    "name": "Performance Monitoring",
+    "description": "Real-time performance monitoring and alerting setup",
+    "unit_type": "per_month",
+    "base_price": 100.00,
+    "category": "monitoring",
+    "is_active": true,
+    "metadata": {
+      "metrics_collected": ["cpu", "memory", "network", "disk", "custom"],
+      "alert_channels": ["email", "slack", "pagerduty", "webhook"]
+    }
+  },
+  {
+    "id": "5",
+    "name": "Architecture Documentation",
+    "description": "Automated architecture documentation generation and maintenance",
+    "unit_type": "flat_rate",
+    "base_price": 750.00,
+    "category": "documentation",
+    "is_active": true,
+    "metadata": {
+      "documentation_types": ["architecture_diagrams", "api_docs", "deployment_guides"],
+      "output_formats": ["markdown", "confluence", "notion", "pdf"]
+    }
+  }
+]

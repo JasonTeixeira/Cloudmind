@@ -1,0 +1,415 @@
+groups:
+  - name: cloudmind-general
+    rules:
+      - alert: BackendHighErrorRate
+        expr: |
+          sum(rate(http_requests_total{endpoint!="/metrics",status=~"5.."}[5m]))
+            /
+          sum(rate(http_requests_total{endpoint!="/metrics"}[5m]))
+          > 0.05
+        for: 10m
+        labels:
+          severity: critical
+        annotations:
+          summary: High 5xx error rate on backend
+          description: Backend 5xx error rate is above 5% for 10 minutes.
+
+      - alert: InstanceDown
+        expr: up == 0
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: Instance {{ $labels.instance }} down
+          description: '{{ $labels.job }} instance {{ $labels.instance }} is down.'
+
+      - alert: HighLatency
+        expr: histogram_quantile(0.95, rate(http_request_duration_seconds_bucket[5m])) > 0.5
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: High p95 latency
+          description: p95 latency above 500ms for 10 minutes.
+
+groups:
+  - name: cloudmind_alerts
+    rules:
+      # High CPU usage
+      - alert: HighCPUUsage
+        expr: 100 - (avg by(instance) (irate(node_cpu_seconds_total{mode="idle"}[5m])) * 100) > 80
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High CPU usage on {{ $labels.instance }}"
+          description: "CPU usage is above 80% for more than 5 minutes on {{ $labels.instance }}"
+
+      # High memory usage
+      - alert: HighMemoryUsage
+        expr: (node_memory_MemTotal_bytes - node_memory_MemAvailable_bytes) / node_memory_MemTotal_bytes * 100 > 85
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High memory usage on {{ $labels.instance }}"
+          description: "Memory usage is above 85% for more than 5 minutes on {{ $labels.instance }}"
+
+      # High disk usage
+      - alert: HighDiskUsage
+        expr: (node_filesystem_size_bytes - node_filesystem_free_bytes) / node_filesystem_size_bytes * 100 > 85
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High disk usage on {{ $labels.instance }}"
+          description: "Disk usage is above 85% for more than 5 minutes on {{ $labels.instance }}"
+
+      # Service down
+      - alert: ServiceDown
+        expr: up == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Service {{ $labels.job }} is down"
+          description: "Service {{ $labels.job }} has been down for more than 1 minute"
+
+      # High response time
+      - alert: HighResponseTime
+        expr: http_request_duration_seconds{quantile="0.95"} > 2
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High response time for {{ $labels.job }}"
+          description: "95th percentile response time is above 2 seconds for {{ $labels.job }}"
+
+      # High error rate
+      - alert: HighErrorRate
+        expr: rate(http_requests_total{status=~"5.."}[5m]) / rate(http_requests_total[5m]) * 100 > 5
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "High error rate for {{ $labels.job }}"
+          description: "Error rate is above 5% for more than 5 minutes for {{ $labels.job }}"
+
+      # Database connection issues
+      - alert: DatabaseConnectionIssues
+        expr: pg_stat_activity_count > 100
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High database connections on {{ $labels.instance }}"
+          description: "Database has more than 100 active connections on {{ $labels.instance }}"
+
+      # Redis memory usage
+      - alert: RedisHighMemoryUsage
+        expr: redis_memory_used_bytes / redis_memory_max_bytes * 100 > 80
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High Redis memory usage"
+          description: "Redis memory usage is above 80%"
+
+      # Elasticsearch cluster health
+      - alert: ElasticsearchClusterRed
+        expr: elasticsearch_cluster_health_status == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Elasticsearch cluster is red"
+          description: "Elasticsearch cluster health status is red"
+
+      # Neo4j connection issues
+      - alert: Neo4jConnectionIssues
+        expr: neo4j_bolt_connections_active > 100
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High Neo4j connections"
+          description: "Neo4j has more than 100 active connections"
+
+      # QDrant health issues
+      - alert: QDrantHealthIssues
+        expr: qdrant_health_status == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "QDrant is unhealthy"
+          description: "QDrant health check is failing"
+
+      # MinIO errors
+      - alert: MinIOErrors
+        expr: rate(minio_errors_total[5m]) > 0
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "MinIO errors detected"
+          description: "MinIO is experiencing errors"
+
+      # Celery worker issues
+      - alert: CeleryWorkerIssues
+        expr: celery_worker_active == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "No active Celery workers"
+          description: "No Celery workers are active"
+
+      # SSL certificate expiration
+      - alert: SSLCertificateExpiringSoon
+        expr: probe_ssl_earliest_cert_expiry - time() < 86400 * 30
+        for: 1m
+        labels:
+          severity: warning
+        annotations:
+          summary: "SSL certificate expiring soon"
+          description: "SSL certificate will expire in less than 30 days"
+
+      # API rate limiting
+      - alert: APIRateLimitExceeded
+        expr: rate(http_requests_total{status="429"}[5m]) > 0
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "API rate limit exceeded"
+          description: "API rate limiting is being triggered"
+
+      # Security alerts
+      - alert: SecurityVulnerabilityDetected
+        expr: security_vulnerabilities_total > 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Security vulnerability detected"
+          description: "Security vulnerabilities have been detected in the system"
+
+      - alert: UnauthorizedAccessAttempts
+        expr: rate(http_requests_total{status="401"}[5m]) > 10
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High number of unauthorized access attempts"
+          description: "Multiple unauthorized access attempts detected"
+
+      # Cost optimization alerts
+      - alert: HighCostSpike
+        expr: cost_current_month > cost_previous_month * 1.5
+        for: 1h
+        labels:
+          severity: warning
+        annotations:
+          summary: "Unusual cost spike detected"
+          description: "Current month cost is 50% higher than previous month"
+
+      # AI/ML model performance
+      - alert: AIModelPerformanceDegradation
+        expr: ai_model_accuracy < 0.8
+        for: 1h
+        labels:
+          severity: warning
+        annotations:
+          summary: "AI model performance degraded"
+          description: "AI model accuracy is below 80%"
+
+      # Backup failures
+      - alert: BackupFailure
+        expr: backup_last_success_timestamp < time() - 86400
+        for: 1h
+        labels:
+          severity: critical
+        annotations:
+          summary: "Backup failure detected"
+          description: "No successful backup in the last 24 hours"
+
+      # Disk space critical
+      - alert: DiskSpaceCritical
+        expr: (node_filesystem_size_bytes - node_filesystem_free_bytes) / node_filesystem_size_bytes * 100 > 95
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Critical disk space on {{ $labels.instance }}"
+          description: "Disk usage is above 95% on {{ $labels.instance }}"
+
+      # Network issues
+      - alert: NetworkLatencyHigh
+        expr: probe_duration_seconds > 1
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High network latency"
+          description: "Network latency is above 1 second"
+
+      # Service restart
+      - alert: ServiceRestart
+        expr: changes(process_start_time_seconds[5m]) > 0
+        for: 1m
+        labels:
+          severity: info
+        annotations:
+          summary: "Service restarted"
+          description: "Service {{ $labels.job }} has been restarted"
+
+      # Memory leak
+      - alert: MemoryLeak
+        expr: rate(process_resident_memory_bytes[5m]) > 0
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Potential memory leak detected"
+          description: "Memory usage is continuously increasing"
+
+      # High queue depth
+      - alert: HighQueueDepth
+        expr: celery_queue_length > 1000
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High queue depth"
+          description: "Celery queue has more than 1000 pending tasks"
+
+      # Database slow queries
+      - alert: DatabaseSlowQueries
+        expr: pg_stat_activity_max_tx_duration > 30
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Slow database queries detected"
+          description: "Database queries taking longer than 30 seconds"
+
+      # Cache hit rate low
+      - alert: CacheHitRateLow
+        expr: redis_keyspace_hits / (redis_keyspace_hits + redis_keyspace_misses) * 100 < 80
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Low cache hit rate"
+          description: "Cache hit rate is below 80%"
+
+      # API endpoint down
+      - alert: APIEndpointDown
+        expr: probe_success == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "API endpoint {{ $labels.instance }} is down"
+          description: "API endpoint {{ $labels.instance }} is not responding"
+
+      # High number of active users
+      - alert: HighActiveUsers
+        expr: active_users_count > 1000
+        for: 5m
+        labels:
+          severity: info
+        annotations:
+          summary: "High number of active users"
+          description: "More than 1000 users are currently active"
+
+      # Resource creation rate
+      - alert: HighResourceCreationRate
+        expr: rate(resources_created_total[5m]) > 10
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High resource creation rate"
+          description: "More than 10 resources are being created per minute"
+
+      # Compliance violations
+      - alert: ComplianceViolation
+        expr: compliance_score < 80
+        for: 1h
+        labels:
+          severity: critical
+        annotations:
+          summary: "Compliance violation detected"
+          description: "Compliance score is below 80%"
+
+      # Data backup size
+      - alert: BackupSizeAnomaly
+        expr: backup_size_bytes > backup_size_bytes * 2
+        for: 1h
+        labels:
+          severity: warning
+        annotations:
+          summary: "Backup size anomaly detected"
+          description: "Backup size is significantly larger than expected"
+
+      # Service dependency issues
+      - alert: ServiceDependencyDown
+        expr: up{job=~"postgres|redis|elasticsearch"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Service dependency down"
+          description: "Critical service dependency {{ $labels.job }} is down"
+
+      # Performance degradation
+      - alert: PerformanceDegradation
+        expr: http_request_duration_seconds{quantile="0.95"} > http_request_duration_seconds{quantile="0.95"} * 1.5
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Performance degradation detected"
+          description: "Response times have increased by 50%"
+
+      # Security scan failures
+      - alert: SecurityScanFailure
+        expr: security_scan_status == 0
+        for: 1h
+        labels:
+          severity: critical
+        annotations:
+          summary: "Security scan failure"
+          description: "Security scan has failed or not completed"
+
+      # Cost optimization opportunities
+      - alert: CostOptimizationOpportunity
+        expr: cost_savings_potential > 100
+        for: 1h
+        labels:
+          severity: info
+        annotations:
+          summary: "Cost optimization opportunity"
+          description: "Potential cost savings of more than $100 detected"
+
+      # AI model drift
+      - alert: AIModelDrift
+        expr: ai_model_drift_score > 0.1
+        for: 1h
+        labels:
+          severity: warning
+        annotations:
+          summary: "AI model drift detected"
+          description: "AI model is showing signs of drift"
+
+      # User experience issues
+      - alert: UserExperienceDegradation
+        expr: user_satisfaction_score < 0.7
+        for: 1h
+        labels:
+          severity: warning
+        annotations:
+          summary: "User experience degradation"
+          description: "User satisfaction score is below 70%" 

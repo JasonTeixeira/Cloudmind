@@ -1,0 +1,22 @@
+# CloudMind Backend - AI/ML Dependencies
+-r base.txt
+
+# AI Provider APIs
+openai==1.100.2
+anthropic==0.64.0
+google-generativeai==0.8.5
+
+# Cloud Provider SDKs
+azure-mgmt-compute==30.3.0
+azure-mgmt-storage==21.0.0
+azure-identity==1.15.0
+google-cloud-storage==2.10.0
+google-cloud-compute==1.14.1
+
+# Optional ML Dependencies (uncomment as needed)
+# torch>=2.0.0
+# transformers>=4.30.0
+# scikit-learn>=1.3.0
+# numpy>=1.24.0
+
+

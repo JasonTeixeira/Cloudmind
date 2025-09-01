@@ -1,0 +1,66 @@
+{
+  "timestamp": "2025-08-20T21:05:17.122Z",
+  "totalPages": 10,
+  "successfulTests": 5,
+  "failedTests": 5,
+  "averagePerformanceScore": 0,
+  "totalBudgetViolations": 0,
+  "results": [
+    {
+      "page": "homepage",
+      "url": "http://localhost:3050",
+      "performanceScore": 0,
+      "budgetViolations": []
+    },
+    {
+      "page": "homepage",
+      "url": "http://localhost:3050",
+      "error": "Cannot read properties of undefined (reading 'toFixed')"
+    },
+    {
+      "page": "dashboard",
+      "url": "http://localhost:3050/dashboard",
+      "performanceScore": 0,
+      "budgetViolations": []
+    },
+    {
+      "page": "dashboard",
+      "url": "http://localhost:3050/dashboard",
+      "error": "Cannot read properties of undefined (reading 'toFixed')"
+    },
+    {
+      "page": "pricing",
+      "url": "http://localhost:3050/pricing",
+      "performanceScore": 0,
+      "budgetViolations": []
+    },
+    {
+      "page": "pricing",
+      "url": "http://localhost:3050/pricing",
+      "error": "Cannot read properties of undefined (reading 'toFixed')"
+    },
+    {
+      "page": "cost-analysis",
+      "url": "http://localhost:3050/cost-analysis",
+      "performanceScore": 0,
+      "budgetViolations": []
+    },
+    {
+      "page": "cost-analysis",
+      "url": "http://localhost:3050/cost-analysis",
+      "error": "Cannot read properties of undefined (reading 'toFixed')"
+    },
+    {
+      "page": "client-portal",
+      "url": "http://localhost:3050/client-portal",
+      "performanceScore": 0,
+      "budgetViolations": []
+    },
+    {
+      "page": "client-portal",
+      "url": "http://localhost:3050/client-portal",
+      "error": "Cannot read properties of undefined (reading 'toFixed')"
+    }
+  ],
+  "recommendations": []
+}

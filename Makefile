@@ -1,0 +1,108 @@
+# CloudMind - World-Class Makefile
+.PHONY: help setup install test start stop clean dev prod docs lint format security
+
+# Default target
+help:
+	@echo "🚀 CloudMind - The Ultimate Cloud Engineering Platform"
+	@echo ""
+	@echo "Available commands:"
+	@echo "  setup      - Initial development setup"
+	@echo "  install    - Install dependencies"
+	@echo "  test       - Run all tests and quality checks"
+	@echo "  start      - Start development environment"
+	@echo "  stop       - Stop all services"
+	@echo "  clean      - Clean up build artifacts"
+	@echo "  lint       - Run linting and formatting"
+	@echo "  security   - Run security scans"
+	@echo "  docs       - Generate documentation"
+	@echo "  prod       - Production deployment"
+	@echo ""
+	@echo "Quick commands:"
+	@echo "  make dev   - Full development setup and start"
+
+# Development setup
+setup:
+	@echo "🏗️  Setting up CloudMind development environment..."
+	@./tools/scripts/setup-dev.sh
+
+# Install dependencies
+install:
+	@echo "📦 Installing dependencies..."
+	@cd backend && source venv/bin/activate && pip install -r requirements/dev.txt
+	@cd frontend && npm install
+
+# Run comprehensive tests
+test:
+	@echo "🧪 Running comprehensive tests..."
+	@./tools/scripts/test-setup.sh
+
+# Start development environment
+start:
+	@echo "🚀 Starting CloudMind development environment..."
+	@./tools/scripts/start-dev.sh
+
+# Stop all services
+stop:
+	@echo "🛑 Stopping all CloudMind services..."
+	@pkill -f "uvicorn app.main:app" || true
+	@pkill -f "npm run dev" || true
+	@pkill -f "next dev" || true
+
+# Clean up
+clean:
+	@echo "🧹 Cleaning up..."
+	@cd backend && rm -rf __pycache__ .pytest_cache .coverage htmlcov .mypy_cache
+	@cd frontend && rm -rf .next build dist node_modules/.cache
+	@rm -rf logs/*.log
+
+# Linting and formatting
+lint:
+	@echo "🔍 Running linting and formatting..."
+	@cd backend && source venv/bin/activate && \
+		ruff check app/ tests/ && \
+		black --check app/ tests/ && \
+		mypy app/
+	@cd frontend && npm run lint && npm run type-check
+
+# Format code
+format:
+	@echo "🎨 Formatting code..."
+	@cd backend && source venv/bin/activate && \
+		black app/ tests/ && \
+		ruff check --fix app/ tests/
+	@cd frontend && npm run format
+
+# Security scans
+security:
+	@echo "🔒 Running security scans..."
+	@cd backend && source venv/bin/activate && bandit -r app/
+	@cd frontend && npm audit
+
+# Generate documentation
+docs:
+	@echo "📚 Generating documentation..."
+	@cd backend && source venv/bin/activate && sphinx-build docs/ docs/_build/
+	@echo "Documentation generated in docs/_build/"
+
+# Production deployment
+prod:
+	@echo "🚀 Deploying to production..."
+	@docker-compose -f deployment/prod/docker-compose.yml up -d
+
+# Quick development command
+dev: setup test start
+
+# Database commands
+db-reset:
+	@echo "🗄️  Resetting database..."
+	@cd backend && source venv/bin/activate && alembic downgrade base && alembic upgrade head
+
+db-migrate:
+	@echo "🗄️  Running migrations..."
+	@cd backend && source venv/bin/activate && alembic upgrade head
+
+# Monitoring
+health:
+	@echo "🏥 Checking health..."
+	@curl -f http://localhost:8000/health && echo "✅ Backend healthy"
+	@curl -f http://localhost:3000 && echo "✅ Frontend healthy"

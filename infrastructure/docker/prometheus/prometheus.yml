@@ -1,0 +1,389 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    monitor: 'cloudmind'
+
+rule_files:
+  - "alert_rules.yml"
+
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets:
+          - alertmanager:9093
+
+scrape_configs:
+  # Prometheus itself
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+
+  # Backend API
+  - job_name: 'backend'
+    static_configs:
+      - targets: ['backend:8000']
+    metrics_path: '/metrics'
+    scrape_interval: 10s
+    scrape_timeout: 5s
+
+  # Frontend (if it exposes metrics)
+  - job_name: 'frontend'
+    static_configs:
+      - targets: ['frontend:3000']
+    metrics_path: '/metrics'
+    scrape_interval: 30s
+
+  # PostgreSQL
+  - job_name: 'postgres'
+    static_configs:
+      - targets: ['postgres:5432']
+    metrics_path: '/metrics'
+    scrape_interval: 30s
+
+  # Redis
+  - job_name: 'redis'
+    static_configs:
+      - targets: ['redis:6379']
+    metrics_path: '/metrics'
+    scrape_interval: 30s
+
+  # Elasticsearch
+  - job_name: 'elasticsearch'
+    static_configs:
+      - targets: ['elasticsearch:9200']
+    metrics_path: '/_prometheus/metrics'
+    scrape_interval: 30s
+
+  # Neo4j
+  - job_name: 'neo4j'
+    static_configs:
+      - targets: ['neo4j:7474']
+    metrics_path: '/metrics'
+    scrape_interval: 30s
+
+  # QDrant
+  - job_name: 'qdrant'
+    static_configs:
+      - targets: ['qdrant:6333']
+    metrics_path: '/metrics'
+    scrape_interval: 30s
+
+  # MinIO
+  - job_name: 'minio'
+    static_configs:
+      - targets: ['minio:9000']
+    metrics_path: '/minio/v2/metrics/cluster'
+    scrape_interval: 30s
+
+  # Celery
+  - job_name: 'celery'
+    static_configs:
+      - targets: ['celery_worker:8000']
+    metrics_path: '/metrics'
+    scrape_interval: 30s
+
+  # Nginx
+  - job_name: 'nginx'
+    static_configs:
+      - targets: ['nginx:80']
+    metrics_path: '/nginx_status'
+    scrape_interval: 30s
+
+  # Node Exporter (system metrics)
+  - job_name: 'node-exporter'
+    static_configs:
+      - targets: ['node-exporter:9100']
+    scrape_interval: 30s
+
+  # Docker containers
+  - job_name: 'docker'
+    static_configs:
+      - targets: ['docker:9323']
+    scrape_interval: 30s
+
+  # Blackbox exporter (uptime monitoring)
+  - job_name: 'blackbox'
+    static_configs:
+      - targets:
+        - 'http://frontend:3000'
+        - 'http://backend:8000'
+        - 'http://nginx:80'
+    metrics_path: /probe
+    params:
+      module: [http_2xx]
+    scrape_interval: 30s
+    scrape_timeout: 10s
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [__param_target]
+        target_label: instance
+      - target_label: __address__
+        replacement: blackbox:9115
+
+  # Custom application metrics
+  - job_name: 'cloudmind-app'
+    static_configs:
+      - targets: ['backend:8000']
+    metrics_path: '/api/v1/metrics'
+    scrape_interval: 15s
+    scrape_timeout: 10s
+    honor_labels: true
+    metric_relabel_configs:
+      - source_labels: [__name__]
+        regex: 'cloudmind_(.+)'
+        action: keep
+
+  # Database metrics
+  - job_name: 'database'
+    static_configs:
+      - targets: ['postgres:5432']
+    metrics_path: '/metrics'
+    scrape_interval: 30s
+    scrape_timeout: 10s
+    params:
+      format: ['prometheus']
+
+  # Cache metrics
+  - job_name: 'cache'
+    static_configs:
+      - targets: ['redis:6379']
+    metrics_path: '/metrics'
+    scrape_interval: 30s
+    scrape_timeout: 10s
+
+  # Queue metrics
+  - job_name: 'queue'
+    static_configs:
+      - targets: ['celery_worker:8000']
+    metrics_path: '/metrics'
+    scrape_interval: 30s
+    scrape_timeout: 10s
+
+  # API endpoints health check
+  - job_name: 'api-health'
+    static_configs:
+      - targets:
+        - 'http://backend:8000/health'
+        - 'http://frontend:3000/health'
+    metrics_path: /probe
+    params:
+      module: [http_2xx]
+    scrape_interval: 30s
+    scrape_timeout: 10s
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [__param_target]
+        target_label: instance
+      - target_label: __address__
+        replacement: blackbox:9115
+
+  # SSL certificate monitoring
+  - job_name: 'ssl-certificates'
+    static_configs:
+      - targets:
+        - 'https://cloudmind.local'
+    metrics_path: /probe
+    params:
+      module: [ssl_connect]
+    scrape_interval: 300s
+    scrape_timeout: 10s
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [__param_target]
+        target_label: instance
+      - target_label: __address__
+        replacement: blackbox:9115
+
+  # DNS resolution monitoring
+  - job_name: 'dns'
+    static_configs:
+      - targets:
+        - 'cloudmind.local'
+    metrics_path: /probe
+    params:
+      module: [dns_udp_53]
+    scrape_interval: 300s
+    scrape_timeout: 10s
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [__param_target]
+        target_label: instance
+      - target_label: __address__
+        replacement: blackbox:9115
+
+  # TCP port monitoring
+  - job_name: 'tcp'
+    static_configs:
+      - targets:
+        - 'backend:8000'
+        - 'frontend:3000'
+        - 'postgres:5432'
+        - 'redis:6379'
+    metrics_path: /probe
+    params:
+      module: [tcp_connect]
+    scrape_interval: 60s
+    scrape_timeout: 10s
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [__param_target]
+        target_label: instance
+      - target_label: __address__
+        replacement: blackbox:9115
+
+  # ICMP ping monitoring
+  - job_name: 'ping'
+    static_configs:
+      - targets:
+        - 'backend'
+        - 'frontend'
+        - 'postgres'
+        - 'redis'
+    metrics_path: /probe
+    params:
+      module: [icmp]
+    scrape_interval: 60s
+    scrape_timeout: 10s
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [__param_target]
+        target_label: instance
+      - target_label: __address__
+        replacement: blackbox:9115
+
+  # Custom business metrics
+  - job_name: 'business-metrics'
+    static_configs:
+      - targets: ['backend:8000']
+    metrics_path: '/api/v1/business-metrics'
+    scrape_interval: 60s
+    scrape_timeout: 10s
+    honor_labels: true
+    metric_relabel_configs:
+      - source_labels: [__name__]
+        regex: 'business_(.+)'
+        action: keep
+
+  # Security metrics
+  - job_name: 'security-metrics'
+    static_configs:
+      - targets: ['backend:8000']
+    metrics_path: '/api/v1/security-metrics'
+    scrape_interval: 60s
+    scrape_timeout: 10s
+    honor_labels: true
+    metric_relabel_configs:
+      - source_labels: [__name__]
+        regex: 'security_(.+)'
+        action: keep
+
+  # Cost optimization metrics
+  - job_name: 'cost-metrics'
+    static_configs:
+      - targets: ['backend:8000']
+    metrics_path: '/api/v1/cost-metrics'
+    scrape_interval: 300s
+    scrape_timeout: 10s
+    honor_labels: true
+    metric_relabel_configs:
+      - source_labels: [__name__]
+        regex: 'cost_(.+)'
+        action: keep
+
+  # AI/ML metrics
+  - job_name: 'ai-metrics'
+    static_configs:
+      - targets: ['backend:8000']
+    metrics_path: '/api/v1/ai-metrics'
+    scrape_interval: 60s
+    scrape_timeout: 10s
+    honor_labels: true
+    metric_relabel_configs:
+      - source_labels: [__name__]
+        regex: 'ai_(.+)'
+        action: keep
+
+  # User activity metrics
+  - job_name: 'user-metrics'
+    static_configs:
+      - targets: ['backend:8000']
+    metrics_path: '/api/v1/user-metrics'
+    scrape_interval: 60s
+    scrape_timeout: 10s
+    honor_labels: true
+    metric_relabel_configs:
+      - source_labels: [__name__]
+        regex: 'user_(.+)'
+        action: keep
+
+  # Performance metrics
+  - job_name: 'performance-metrics'
+    static_configs:
+      - targets: ['backend:8000']
+    metrics_path: '/api/v1/performance-metrics'
+    scrape_interval: 30s
+    scrape_timeout: 10s
+    honor_labels: true
+    metric_relabel_configs:
+      - source_labels: [__name__]
+        regex: 'performance_(.+)'
+        action: keep
+
+  # Error tracking metrics
+  - job_name: 'error-metrics'
+    static_configs:
+      - targets: ['backend:8000']
+    metrics_path: '/api/v1/error-metrics'
+    scrape_interval: 60s
+    scrape_timeout: 10s
+    honor_labels: true
+    metric_relabel_configs:
+      - source_labels: [__name__]
+        regex: 'error_(.+)'
+        action: keep
+
+  # API usage metrics
+  - job_name: 'api-usage'
+    static_configs:
+      - targets: ['backend:8000']
+    metrics_path: '/api/v1/usage-metrics'
+    scrape_interval: 60s
+    scrape_timeout: 10s
+    honor_labels: true
+    metric_relabel_configs:
+      - source_labels: [__name__]
+        regex: 'api_(.+)'
+        action: keep
+
+  # Resource utilization metrics
+  - job_name: 'resource-metrics'
+    static_configs:
+      - targets: ['backend:8000']
+    metrics_path: '/api/v1/resource-metrics'
+    scrape_interval: 60s
+    scrape_timeout: 10s
+    honor_labels: true
+    metric_relabel_configs:
+      - source_labels: [__name__]
+        regex: 'resource_(.+)'
+        action: keep
+
+  # Compliance metrics
+  - job_name: 'compliance-metrics'
+    static_configs:
+      - targets: ['backend:8000']
+    metrics_path: '/api/v1/compliance-metrics'
+    scrape_interval: 300s
+    scrape_timeout: 10s
+    honor_labels: true
+    metric_relabel_configs:
+      - source_labels: [__name__]
+        regex: 'compliance_(.+)'
+        action: keep 

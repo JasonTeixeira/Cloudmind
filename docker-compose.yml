@@ -1,0 +1,229 @@
+version: '3.8'
+
+services:
+  # Frontend
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+      - /app/.next
+    environment:
+      - NEXT_PUBLIC_API_URL=http://backend:8000
+      - NODE_ENV=development
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend
+    networks:
+      - cloudmind-net
+    restart: unless-stopped
+
+  # Backend
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    volumes:
+      - ./backend:/app
+    environment:
+      - ENVIRONMENT=development
+      - DEBUG=false
+      - SECRET_KEY=${SECRET_KEY}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - TIMESCALE_PASSWORD=${TIMESCALE_PASSWORD}
+      - GRAFANA_PASSWORD=${GRAFANA_PASSWORD}
+      - REDIS_PASSWORD=${REDIS_PASSWORD}
+      - DATABASE_URL=postgresql+asyncpg://cloudmind:${DB_PASSWORD}@postgres:5432/cloudmind
+      - TIMESCALE_URL=postgresql+asyncpg://cloudmind:${TIMESCALE_PASSWORD}@timescale:5433/cloudmind_metrics
+      - REDIS_URL=redis://:${REDIS_PASSWORD}@redis:6379/0
+      - CELERY_BROKER_URL=redis://:${REDIS_PASSWORD}@redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://:${REDIS_PASSWORD}@redis:6379/0
+      - PROMETHEUS_URL=http://prometheus:9090
+      - GRAFANA_URL=http://grafana:3001
+    ports:
+      - "8000:8000"
+    depends_on:
+      - postgres
+      - redis
+    networks:
+      - cloudmind-net
+    restart: unless-stopped
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+
+  # Celery Worker
+  celery_worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    volumes:
+      - ./backend:/app
+    environment:
+      - ENVIRONMENT=development
+      - DEBUG=false
+      - SECRET_KEY=${SECRET_KEY}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - TIMESCALE_PASSWORD=${TIMESCALE_PASSWORD}
+      - GRAFANA_PASSWORD=${GRAFANA_PASSWORD}
+      - REDIS_PASSWORD=${REDIS_PASSWORD}
+      - DATABASE_URL=postgresql://cloudmind:${DB_PASSWORD}@postgres:5432/cloudmind?sslmode=require
+      - TIMESCALE_URL=postgresql://cloudmind:${TIMESCALE_PASSWORD}@timescale:5433/cloudmind_metrics?sslmode=require
+      - REDIS_URL=redis://:${REDIS_PASSWORD}@redis:6379/0?ssl=true
+      - CELERY_BROKER_URL=redis://:${REDIS_PASSWORD}@redis:6379/0?ssl=true
+      - CELERY_RESULT_BACKEND=redis://:${REDIS_PASSWORD}@redis:6379/0?ssl=true
+      - PROMETHEUS_URL=https://prometheus:9090
+      - GRAFANA_URL=https://grafana:3001
+    depends_on:
+      - postgres
+      - redis
+    networks:
+      - cloudmind-net
+    restart: unless-stopped
+    command: celery -A app.tasks.celery_app worker --loglevel=info
+
+  # PostgreSQL
+  postgres:
+    image: postgres:16
+    environment:
+      - POSTGRES_DB=cloudmind
+      - POSTGRES_USER=cloudmind
+      - POSTGRES_PASSWORD=${DB_PASSWORD}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./infrastructure/docker/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql
+    ports:
+      - "5432:5432"
+    networks:
+      - cloudmind-net
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U cloudmind"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # TimescaleDB
+  timescale:
+    image: timescale/timescaledb:2.13-pg16
+    environment:
+      - POSTGRES_DB=cloudmind_metrics
+      - POSTGRES_USER=cloudmind
+      - POSTGRES_PASSWORD=${TIMESCALE_PASSWORD}
+    volumes:
+      - timescale_data:/var/lib/postgresql/data
+    ports:
+      - "5433:5432"
+    networks:
+      - cloudmind-net
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U cloudmind"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Redis
+  redis:
+    image: redis:7.2-alpine
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD} --maxmemory 512mb --maxmemory-policy allkeys-lru
+    volumes:
+      - redis_data:/data
+    ports:
+      - "6379:6379"
+    networks:
+      - cloudmind-net
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "--raw", "incr", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+
+
+  # Prometheus
+  prometheus:
+    image: prom/prometheus:2.48.0
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--storage.tsdb.retention.time=200h'
+      - '--web.enable-lifecycle'
+      - '--web.enable-admin-api'
+    volumes:
+      - ./infrastructure/docker/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus_data:/prometheus
+    ports:
+      - "9090:9090"
+    networks:
+      - cloudmind-net
+    restart: unless-stopped
+
+  # Grafana
+  grafana:
+    image: grafana/grafana:10.2.0
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD}
+      - GF_USERS_ALLOW_SIGN_UP=false
+      - GF_SERVER_PROTOCOL=https
+      - GF_SERVER_CERT_FILE=/etc/grafana/certs/cert.pem
+      - GF_SERVER_KEY_FILE=/etc/grafana/certs/key.pem
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./infrastructure/docker/grafana/provisioning:/etc/grafana/provisioning
+      - ./infrastructure/docker/grafana/certs:/etc/grafana/certs
+    ports:
+      - "3001:3000"
+    networks:
+      - cloudmind-net
+    restart: unless-stopped
+    depends_on:
+      - prometheus
+
+  # Nginx
+  nginx:
+    image: nginx:alpine
+    volumes:
+      - ./infrastructure/docker/nginx/nginx.conf:/etc/nginx/nginx.conf
+      - ./infrastructure/docker/nginx/ssl:/etc/nginx/ssl
+    ports:
+      - "80:80"
+      - "443:443"
+    depends_on:
+      - frontend
+      - backend
+    networks:
+      - cloudmind-net
+    restart: unless-stopped
+
+  # Ollama (Local LLM)
+  ollama:
+    image: ollama/ollama:latest
+    volumes:
+      - ollama_data:/root/.ollama
+    ports:
+      - "11434:11434"
+    networks:
+      - cloudmind-net
+    restart: unless-stopped
+    deploy:
+      resources:
+        reservations:
+          memory: 4G
+
+volumes:
+  postgres_data:
+  timescale_data:
+  redis_data:
+  prometheus_data:
+  grafana_data:
+  ollama_data:
+
+networks:
+  cloudmind-net:
+    driver: bridge 

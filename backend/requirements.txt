@@ -1,0 +1,3 @@
+# CloudMind Backend - Production Requirements
+# This file is used for production deployments
+-r requirements/ai.txt

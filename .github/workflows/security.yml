@@ -1,0 +1,129 @@
+name: Security Suite
+
+on:
+  pull_request:
+  push:
+    branches: [ main ]
+  schedule:
+    - cron: '0 3 * * *'
+
+jobs:
+  bandit:
+    name: Python SAST (Bandit)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install bandit
+        run: pip install bandit
+      - name: Run bandit
+        run: bandit -r backend/app -ll -x backend/tests -q
+
+  gitleaks:
+    name: Secret Scanning (Gitleaks)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Run Gitleaks
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          args: detect --no-git -v
+
+  trivy:
+    name: Container Scan (Trivy)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      - name: Build backend image
+        run: docker build --build-arg PY_BASE=python:3.11-slim@sha256:5db6c4c1c6b3f1f7a310d8bfb8a2d19e3a24b0eb4b4c1f2f4dbe5e0f5f9e6a2b -t cloudmind-backend:ci ./backend
+      - name: Scan image with Trivy
+        uses: aquasecurity/trivy-action@0.20.0
+        with:
+          image-ref: cloudmind-backend:ci
+          format: sarif
+          output: trivy-results.sarif
+          severity: CRITICAL,HIGH
+          exit-code: '1'
+      - name: Upload Trivy report
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: trivy-results.sarif
+
+  sbom:
+    name: SBOM (Syft)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build backend image
+        run: docker build --build-arg PY_BASE=python:3.11-slim@sha256:5db6c4c1c6b3f1f7a310d8bfb8a2d19e3a24b0eb4b4c1f2f4dbe5e0f5f9e6a2b -t cloudmind-backend:ci ./backend
+      - name: Generate SBOM
+        uses: anchore/sbom-action@v0
+        with:
+          image: cloudmind-backend:ci
+          output-file: sbom.spdx.json
+      - name: Upload SBOM artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: sbom-spdx
+          path: sbom.spdx.json
+
+  codeql:
+    name: CodeQL Analysis
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: read
+      security-events: write
+    strategy:
+      fail-fast: false
+      matrix:
+        language: [ 'python' ]
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: ${{ matrix.language }}
+      - name: Autobuild
+        uses: github/codeql-action/autobuild@v3
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v3
+
+  cosign:
+    name: Sign Image (Cosign)
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    needs: [trivy, sbom]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Cosign
+        uses: sigstore/cosign-installer@v3
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Build and push image
+        run: |
+          IMAGE=ghcr.io/${{ github.actor }}/cloudmind:main-${{ github.sha }}
+          docker build --build-arg PY_BASE=python:3.11-slim@sha256:5db6c4c1c6b3f1f7a310d8bfb8a2d19e3a24b0eb4b4c1f2f4dbe5e0f5f9e6a2b -t $IMAGE ./backend
+          docker push $IMAGE
+      - name: Cosign sign (keyless)
+        env:
+          COSIGN_EXPERIMENTAL: "1"
+        run: |
+          IMAGE=ghcr.io/${{ github.actor }}/cloudmind:main-${{ github.sha }}
+          cosign sign $IMAGE
+

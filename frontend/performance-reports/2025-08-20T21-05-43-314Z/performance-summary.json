@@ -1,0 +1,66 @@
+{
+  "timestamp": "2025-08-20T21:06:05.592Z",
+  "totalPages": 5,
+  "successfulTests": 5,
+  "failedTests": 0,
+  "averagePerformanceScore": 0,
+  "totalBudgetViolations": 0,
+  "results": [
+    {
+      "page": "homepage",
+      "url": "http://localhost:3050",
+      "performanceScore": 0,
+      "firstContentfulPaint": 0,
+      "largestContentfulPaint": 0,
+      "cumulativeLayoutShift": 0,
+      "totalBlockingTime": 0,
+      "speedIndex": 0,
+      "budgetViolations": []
+    },
+    {
+      "page": "dashboard",
+      "url": "http://localhost:3050/dashboard",
+      "performanceScore": 0,
+      "firstContentfulPaint": 0,
+      "largestContentfulPaint": 0,
+      "cumulativeLayoutShift": 0,
+      "totalBlockingTime": 0,
+      "speedIndex": 0,
+      "budgetViolations": []
+    },
+    {
+      "page": "pricing",
+      "url": "http://localhost:3050/pricing",
+      "performanceScore": 0,
+      "firstContentfulPaint": 0,
+      "largestContentfulPaint": 0,
+      "cumulativeLayoutShift": 0,
+      "totalBlockingTime": 0,
+      "speedIndex": 0,
+      "budgetViolations": []
+    },
+    {
+      "page": "cost-analysis",
+      "url": "http://localhost:3050/cost-analysis",
+      "performanceScore": 0,
+      "firstContentfulPaint": 0,
+      "largestContentfulPaint": 0,
+      "cumulativeLayoutShift": 0,
+      "totalBlockingTime": 0,
+      "speedIndex": 0,
+      "budgetViolations": []
+    },
+    {
+      "page": "client-portal",
+      "url": "http://localhost:3050/client-portal",
+      "performanceScore": 0,
+      "firstContentfulPaint": 0,
+      "largestContentfulPaint": 0,
+      "cumulativeLayoutShift": 0,
+      "totalBlockingTime": 0,
+      "speedIndex": 0,
+      "budgetViolations": []
+    }
+  ],
+  "recommendations": []
+}

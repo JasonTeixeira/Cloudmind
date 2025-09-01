@@ -1,0 +1,212 @@
+version: '3.8'
+
+services:
+  # CloudMind Frontend
+  cloudmind-frontend:
+    build: ../../frontend
+    container_name: cloudmind-frontend
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+      - NEXT_PUBLIC_API_URL=http://cloudmind-backend:8000
+    ports:
+      - "3000:3000"
+    networks:
+      - cloudmind-network
+    depends_on:
+      - cloudmind-backend
+  # CloudMind Backend
+  cloudmind-backend:
+    build: .
+    container_name: cloudmind-backend
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://cloudmind:${DB_PASSWORD}@postgres:5432/cloudmind
+      - REDIS_URL=redis://:${REDIS_PASSWORD}@redis:6379/0
+      - SECRET_KEY=${SECRET_KEY}
+      - ENVIRONMENT=production
+      - LOG_LEVEL=INFO
+      - ENABLE_ENTERPRISE_SECURITY=true
+      - SECURITY_LEVEL=enterprise
+      - ENABLE_AI_FEATURES=true
+      - ENABLE_CLOUD_SCANNING=true
+      - PROMETHEUS_URL=http://prometheus:9090
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://tempo:4318
+    depends_on:
+      - postgres
+      - redis
+    networks:
+      - cloudmind-network
+    volumes:
+      - ./logs:/app/logs
+      - ./ml_models:/app/ml_models
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    container_name: cloudmind-postgres
+    restart: unless-stopped
+    environment:
+      - POSTGRES_DB=cloudmind
+      - POSTGRES_USER=cloudmind
+      - POSTGRES_PASSWORD=${DB_PASSWORD}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+    ports:
+      - "5432:5432"
+    networks:
+      - cloudmind-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U cloudmind -d cloudmind"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Redis Cache
+  redis:
+    image: redis:7-alpine
+    container_name: cloudmind-redis
+    restart: unless-stopped
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD}
+    volumes:
+      - redis_data:/data
+    ports:
+      - "6379:6379"
+    networks:
+      - cloudmind-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "--raw", "incr", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+  # Nginx Reverse Proxy
+  nginx:
+    image: nginx:alpine
+    container_name: cloudmind-nginx
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf
+      - ./nginx/ssl:/etc/nginx/ssl
+      - ./logs/nginx:/var/log/nginx
+      - ./nginx/certbot:/var/www/certbot
+    depends_on:
+      - cloudmind-backend
+      - cloudmind-frontend
+    networks:
+      - cloudmind-network
+  certbot:
+    image: certbot/certbot:latest
+    container_name: cloudmind-certbot
+    volumes:
+      - ./nginx/ssl:/etc/letsencrypt
+      - ./nginx/certbot:/var/www/certbot
+    entrypoint: >-
+      /bin/sh -c "trap exit TERM; while :; do sleep 12h & wait $${!}; certbot renew --webroot -w /var/www/certbot --agree-tos --non-interactive || true; done"
+    networks:
+      - cloudmind-network
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Prometheus Monitoring
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: cloudmind-prometheus
+    restart: unless-stopped
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+      - ./prometheus/alert_rules.yml:/etc/prometheus/alert_rules.yml
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--storage.tsdb.retention.time=200h'
+      - '--web.enable-lifecycle'
+    networks:
+      - cloudmind-network
+
+  alertmanager:
+    image: prom/alertmanager:latest
+    container_name: cloudmind-alertmanager
+    restart: unless-stopped
+    ports:
+      - "9093:9093"
+    volumes:
+      - ./alertmanager/config.yml:/etc/alertmanager/config.yml
+    networks:
+      - cloudmind-network
+
+  loki:
+    image: grafana/loki:2.9.0
+    container_name: cloudmind-loki
+    restart: unless-stopped
+    ports:
+      - "3100:3100"
+    command: ["-config.file=/etc/loki/config.yml"]
+    volumes:
+      - ./prometheus/loki-config.yml:/etc/loki/config.yml
+    networks:
+      - cloudmind-network
+
+  promtail:
+    image: grafana/promtail:2.9.0
+    container_name: cloudmind-promtail
+    restart: unless-stopped
+    volumes:
+      - /var/log:/var/log
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./prometheus/promtail-config.yml:/etc/promtail/config.yml
+    command: ["--config.file=/etc/promtail/config.yml"]
+    networks:
+      - cloudmind-network
+
+  # Grafana Dashboard
+  grafana:
+    image: grafana/grafana:latest
+    container_name: cloudmind-grafana
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD}
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./monitoring/grafana/dashboards:/etc/grafana/provisioning/dashboards
+      - ./monitoring/grafana/datasources:/etc/grafana/provisioning/datasources
+    depends_on:
+      - prometheus
+    networks:
+      - cloudmind-network
+
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+  prometheus_data:
+    driver: local
+  grafana_data:
+    driver: local
+
+networks:
+  cloudmind-network:
+    driver: bridge
